@@ -1,0 +1,19 @@
+{
+  "name": "leilao-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/servidor.js",
+    "dev": "node --watch --env-file=.env src/servidor.js",
+    "db:criar": "node --env-file=.env src/db/criar-banco.js",
+    "db:seed": "node --env-file=.env src/db/seed.js",
+    "db:reset": "npm run db:criar && npm run db:seed"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.1"
+  }
+}
