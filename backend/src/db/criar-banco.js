@@ -5,6 +5,8 @@ const sql = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
+console.log('Banco alvo:', new URL(process.env.DATABASE_URL).host);
+
 try {
   await pool.query(sql);
   console.log('Banco criado com sucesso.');
