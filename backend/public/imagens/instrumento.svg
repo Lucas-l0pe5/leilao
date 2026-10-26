@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#2b2d42"/>
+  <circle cx="200" cy="150" r="70" fill="#8d99ae"/>
+  <text x="200" y="158" font-family="Arial, sans-serif" font-size="22" fill="#edf2f4" text-anchor="middle">Instrumento</text>
+</svg>
