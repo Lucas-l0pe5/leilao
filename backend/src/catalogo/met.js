@@ -1,6 +1,6 @@
 // Adaptador do Met Museum: busca na API pública e converte para o formato único.
 
-const BASE = 'https://collectionapiX.metmuseum.org/public/collection/v1';
+const BASE = 'https://collectionapi.metmuseum.org/public/collection/v1';
 const BASE_BUSCA = 'https://collectionapi.metmuseum.org/public/collection/v1.1';
 const DEPARTAMENTO_INSTRUMENTOS = 18;
 const MAX_ITENS = 12;

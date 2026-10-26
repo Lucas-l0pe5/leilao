@@ -6,6 +6,8 @@ import { pool } from './db/pool.js';
 import rotasAutenticacao from './rotas/autenticacao.js';
 import rotasCarteira from './rotas/carteira.js';
 import catalogoRotas from './rotas/catalogo.js';
+import rotasLotes from './rotas/lotes.js';
+import rotasLeiloeiro from './rotas/leiloeiro.js';
 
 export const app = express();
 
@@ -24,6 +26,8 @@ const pastaAtual = path.dirname(fileURLToPath(import.meta.url));
 
 app.use('/imagens', express.static(path.join(pastaAtual, '..', 'public', 'imagens')));
 app.use('/catalogo', catalogoRotas);
+app.use('/lotes', rotasLotes);
+app.use('/leiloeiro', rotasLeiloeiro);
 
 app.use((req, res) => {
   res.status(404).json({ erro: 'Rota não encontrada.' });
