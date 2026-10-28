@@ -9,6 +9,10 @@ import catalogoRotas from './rotas/catalogo.js';
 import rotasLotes from './rotas/lotes.js';
 import rotasLeiloeiro from './rotas/leiloeiro.js';
 import rotasLances from './rotas/lances.js';
+import rotasSala from './rotas/sala.js';
+import rotasMeus from './rotas/meus.js';
+import rotasComprovantes from './rotas/comprovantes.js';
+import rotasLeiloeiroResumo from './rotas/leiloeiro-resumo.js';
 
 export const app = express();
 
@@ -30,7 +34,11 @@ app.use('/catalogo', catalogoRotas);
 app.use('/lotes', rotasLotes);
 app.use('/lotes', rotasLances);
 app.use('/leiloeiro', rotasLeiloeiro);
-app.use('/lotes', rotasLotes);
+app.use('/lotes', rotasSala);
+app.use('/meus', rotasMeus);
+app.use('/comprovantes', rotasComprovantes);
+app.use('/leiloeiro', rotasLeiloeiroResumo);
+
 app.use((req, res) => {
   res.status(404).json({ erro: 'Rota não encontrada.' });
 });

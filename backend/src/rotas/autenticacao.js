@@ -93,8 +93,4 @@ rotas.get('/eu', exigirLogin, async (req, res) => {
   return res.json({ usuario: rows[0] });
 });
 
-rotas.get('/teste-leiloeiro', exigirLogin, exigirPapel('leiloeiro'), (req, res) => {
-  res.json({ ok: true, mensagem: 'Você é leiloeiro.' });
-});
-
 export default rotas;
