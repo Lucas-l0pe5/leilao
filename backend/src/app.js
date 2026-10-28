@@ -8,6 +8,7 @@ import rotasCarteira from './rotas/carteira.js';
 import catalogoRotas from './rotas/catalogo.js';
 import rotasLotes from './rotas/lotes.js';
 import rotasLeiloeiro from './rotas/leiloeiro.js';
+import rotasLances from './rotas/lances.js';
 
 export const app = express();
 
@@ -27,8 +28,9 @@ const pastaAtual = path.dirname(fileURLToPath(import.meta.url));
 app.use('/imagens', express.static(path.join(pastaAtual, '..', 'public', 'imagens')));
 app.use('/catalogo', catalogoRotas);
 app.use('/lotes', rotasLotes);
+app.use('/lotes', rotasLances);
 app.use('/leiloeiro', rotasLeiloeiro);
-
+app.use('/lotes', rotasLotes);
 app.use((req, res) => {
   res.status(404).json({ erro: 'Rota não encontrada.' });
 });
