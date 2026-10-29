@@ -14,8 +14,11 @@ import rotasComprovantes from './rotas/comprovantes.js';
 import rotasAuditoria from './rotas/auditoria.js';
 import rotasLeiloeiro from './rotas/leiloeiro.js';
 import rotasLeiloeiroResumo from './rotas/leiloeiro-resumo.js';
+import helmet from 'helmet';
 
 export const app = express();
+
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
 app.use(cors());
 app.use(express.json());
@@ -46,6 +49,9 @@ app.use((req, res) => {
 });
 
 app.use((erro, req, res, next) => {
+  if (erro.type === 'entity.parse.failed') {
+    return res.status(400).json({ erro: 'JSON inválido no corpo do pedido.' });
+  }
   console.error(erro);
   res.status(500).json({ erro: 'Erro interno do servidor.' });
 });
