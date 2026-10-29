@@ -16,12 +16,16 @@ export function limparValor(texto) {
 
 // O que foi digitado e não é número nem separador? Espaços e "R$" não contam:
 // são comuns ao colar um valor e não indicam erro de quem digitou.
-function temCaractereRecusado(texto) {
+export function temCaractereRecusado(texto) {
   return texto.replace(/R\$|\s|[\d.,]/g, '').length > 0;
 }
 
-export default function CampoDinheiro({ rotulo, valor, aoMudar, erro, ajuda, ...resto }) {
-  const id = useId();
+export const MENSAGEM_RECUSA = 'Use só números, com vírgula para os centavos (ex.: 1.250,50).';
+
+// Lógica comum a todo campo de valor: limpa o texto digitado ou colado e,
+// se algo foi recusado, liga o aviso por alguns segundos. Usada por este
+// componente e pelos campos compactos da faixa de preço da vitrine.
+export function useCampoNumerico(aoMudar) {
   const [recusado, setRecusado] = useState(false);
   const temporizador = useRef(null);
 
@@ -39,7 +43,14 @@ export default function CampoDinheiro({ rotulo, valor, aoMudar, erro, ajuda, ...
     aoMudar(limparValor(digitado));
   }
 
-  const mensagem = recusado ? 'Use só números, com vírgula para os centavos (ex.: 1.250,50).' : erro;
+  return { recusado, mudar };
+}
+
+export default function CampoDinheiro({ rotulo, valor, aoMudar, erro, ajuda, ...resto }) {
+  const id = useId();
+  const { recusado, mudar } = useCampoNumerico(aoMudar);
+
+  const mensagem = recusado ? MENSAGEM_RECUSA : erro;
   const invalido = Boolean(mensagem);
 
   return (

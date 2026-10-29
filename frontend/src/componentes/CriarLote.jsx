@@ -6,6 +6,8 @@ import { formatarCentavos, textoParaCentavos } from '../lib/dinheiro.js';
 import { Girador } from './Estado.jsx';
 import { paraCampoDataHora } from '../lib/tempo.js';
 import { rotuloEmPortugues, traduzirBusca } from '../lib/catalogoMet.js';
+import CampoDinheiro from './CampoDinheiro.jsx';
+import CampoDataHora, { horaValida } from './CampoDataHora.jsx';
 
 const UMA_HORA = 60 * 60 * 1000;
 const ESQUELETOS = 8;
@@ -41,6 +43,47 @@ function horariosPadrao() {
   return { inicio: paraCampoDataHora(inicio), fim: paraCampoDataHora(fim) };
 }
 
+const LIMITE_CENTAVOS = 100000000; // o mesmo limite do back-end: R$ 1.000.000,00
+
+// Mensagem de erro de um campo de valor, ou null. "tocado" liga a regra de
+// campo vazio só depois que a pessoa saiu do campo ou tentou publicar.
+function validarValor(texto, tocado) {
+  const centavos = textoParaCentavos(texto);
+  if (texto !== '' && centavos === null) {
+    return 'Valor inválido. Use o formato 500,00.';
+  }
+  if (centavos > LIMITE_CENTAVOS) {
+    return `O máximo é ${formatarCentavos(LIMITE_CENTAVOS)}.`;
+  }
+  if (tocado && (texto === '' || centavos === 0)) {
+    return 'Digite um valor maior que zero.';
+  }
+  return null;
+}
+
+// Erros dos horários: formato da hora digitada e as mesmas regras que o
+// back-end confere ao criar o lote (fim depois do início e no futuro).
+function validarHorarios(inicio, fim) {
+  const erroDeFormato = (valor, nome) => {
+    const [dia, hora = ''] = valor.split('T');
+    if (!dia) return `Escolha a data de ${nome}.`;
+    if (!horaValida(hora)) return 'Digite o horário no formato HH:mm (ex.: 14:37).';
+    return null;
+  };
+  const erros = { inicio: erroDeFormato(inicio, 'início'), fim: erroDeFormato(fim, 'fim') };
+
+  // Só compara as datas quando as duas estão completas.
+  if (!erros.inicio && !erros.fim) {
+    const dataFim = new Date(fim);
+    if (dataFim <= new Date(inicio)) {
+      erros.fim = 'O fim precisa ser depois do início.';
+    } else if (dataFim <= new Date()) {
+      erros.fim = 'O fim precisa estar no futuro.';
+    }
+  }
+  return erros;
+}
+
 export default function CriarLote({ aoCriar }) {
   const [termo, setTermo] = useState('');
   const [busca, setBusca] = useState({ carregando: true, itens: [], fonte: null, aviso: null, erro: null, termoMet: null });
@@ -51,6 +94,13 @@ export default function CriarLote({ aoCriar }) {
   const [form, setForm] = useState(() => ({ titulo: '', lanceInicial: '', incremento: '', ...horariosPadrao() }));
   const [enviando, setEnviando] = useState(false);
   const [retorno, setRetorno] = useState(null);
+  // Quais campos de valor já foram "tocados" (saiu do campo ou tentou publicar).
+  const [tocados, setTocados] = useState({ lanceInicial: false, incremento: false });
+
+  const erroLance = validarValor(form.lanceInicial, tocados.lanceInicial);
+  const erroIncremento = validarValor(form.incremento, tocados.incremento);
+  const errosHorario = validarHorarios(form.inicio, form.fim);
+  const hoje = paraCampoDataHora(new Date()).slice(0, 10);
 
   async function consultar(termoMet) {
     return api(`/catalogo/itens?q=${encodeURIComponent(termoMet)}`);
@@ -102,13 +152,25 @@ export default function CriarLote({ aoCriar }) {
     return (evento) => setForm((anterior) => ({ ...anterior, [campo]: evento.target.value }));
   }
 
+  // Versão para componentes que já entregam o valor pronto (não o evento).
+  function definir(campo) {
+    return (valor) => setForm((anterior) => ({ ...anterior, [campo]: valor }));
+  }
+
+  function tocar(campo) {
+    return () => setTocados((anterior) => ({ ...anterior, [campo]: true }));
+  }
+
   async function publicar(evento) {
     evento.preventDefault();
     const lanceInicial = textoParaCentavos(form.lanceInicial);
     const incremento = textoParaCentavos(form.incremento);
 
-    if (!lanceInicial || !incremento) {
-      setRetorno({ tipo: 'erro', texto: 'Preencha o lance inicial e o incremento mínimo, por exemplo 500,00.' });
+    setTocados({ lanceInicial: true, incremento: true });
+    const horarios = validarHorarios(form.inicio, form.fim);
+    if (validarValor(form.lanceInicial, true) || validarValor(form.incremento, true) || horarios.inicio || horarios.fim) {
+      // Os campos com problema já ficam com a borda vermelha e a mensagem embaixo.
+      setRetorno({ tipo: 'erro', texto: 'Confira os campos destacados em vermelho.' });
       return;
     }
 
@@ -132,6 +194,7 @@ export default function CriarLote({ aoCriar }) {
       setRetorno({ tipo: 'sucesso', texto: `Lote #${lote.id} publicado (${lote.situacao === 'ao_vivo' ? 'ao vivo' : 'agendado'}).` });
       setItem(null);
       setForm({ titulo: '', lanceInicial: '', incremento: '', ...horariosPadrao() });
+      setTocados({ lanceInicial: false, incremento: false });
       aoCriar?.();
     } catch (erro) {
       setRetorno({ tipo: 'erro', texto: erro.message });
@@ -241,24 +304,26 @@ export default function CriarLote({ aoCriar }) {
             </label>
 
             <div className="grade-2">
-              <label className="campo">
-                <span className="campo__rotulo">Lance inicial (R$)</span>
-                <input inputMode="decimal" placeholder="500,00" value={form.lanceInicial} onChange={alterar('lanceInicial')} />
-                <span className="campo__ajuda numero">{formatarCentavos(textoParaCentavos(form.lanceInicial))}</span>
-              </label>
-              <label className="campo">
-                <span className="campo__rotulo">Incremento mínimo (R$)</span>
-                <input inputMode="decimal" placeholder="25,00" value={form.incremento} onChange={alterar('incremento')} />
-                <span className="campo__ajuda numero">{formatarCentavos(textoParaCentavos(form.incremento))}</span>
-              </label>
-              <label className="campo">
-                <span className="campo__rotulo">Início</span>
-                <input type="datetime-local" value={form.inicio} onChange={alterar('inicio')} required />
-              </label>
-              <label className="campo">
-                <span className="campo__rotulo">Fim</span>
-                <input type="datetime-local" value={form.fim} onChange={alterar('fim')} required />
-              </label>
+              <CampoDinheiro
+                rotulo="Lance inicial (R$)"
+                valor={form.lanceInicial}
+                aoMudar={definir('lanceInicial')}
+                erro={erroLance}
+                placeholder="500,00"
+                onBlur={tocar('lanceInicial')}
+                ajuda={<span className="campo__ajuda numero">{formatarCentavos(textoParaCentavos(form.lanceInicial))}</span>}
+              />
+              <CampoDinheiro
+                rotulo="Incremento mínimo (R$)"
+                valor={form.incremento}
+                aoMudar={definir('incremento')}
+                erro={erroIncremento}
+                placeholder="25,00"
+                onBlur={tocar('incremento')}
+                ajuda={<span className="campo__ajuda numero">{formatarCentavos(textoParaCentavos(form.incremento))}</span>}
+              />
+              <CampoDataHora rotulo="Início" valor={form.inicio} aoMudar={definir('inicio')} erro={errosHorario.inicio} />
+              <CampoDataHora rotulo="Fim" valor={form.fim} aoMudar={definir('fim')} erro={errosHorario.fim} min={hoje} />
             </div>
 
             <button type="submit" className="botao botao--primario" disabled={enviando}>

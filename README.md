@@ -693,3 +693,60 @@ Não há suíte automatizada (Jest ou similar). Os testes foram feitos com dois 
 - Configurei o Neon e o Render (API e site), as variáveis de ambiente, o health check e a regra de reescrita, e rodei o seed em produção conferindo o host do banco.
 - Testei o site publicado de ponta a ponta antes das correções finais.
 - Fiz perguntas sobre trechos que não entendi (por exemplo, por que o parâmetro `res` fica na função mesmo sem uso).
+
+---
+
+## 16. Ajustes finais: validação numérica e seleção de horário
+
+Última rodada de correções antes da entrega. Só o front-end mudou; a API e o banco ficaram iguais.
+
+### Campos de valor aceitam só números
+
+| Campo | Onde | Antes | Agora |
+|---|---|---|---|
+| Lance inicial (R$) | Painel do leiloeiro, novo lote | Aceitava letras; o erro só aparecia num aviso geral ao publicar | Só números, vírgula e ponto. Borda vermelha e mensagem no próprio campo |
+| Incremento mínimo (R$) | Painel do leiloeiro, novo lote | Igual ao lance inicial | Igual ao lance inicial |
+| De R$ / Até R$ | Filtros da vitrine | Aceitava letras, que eram ignoradas sem aviso | Só números, vírgula e ponto. Borda vermelha quando algo é recusado ou a faixa é inválida |
+
+- Letras e símbolos são descartados ao digitar e ao colar ("R$ 1.250,50" colado vira "1.250,50"). Quando isso acontece, o campo fica com borda vermelha e mostra "Use só números, com vírgula para os centavos" por 2,5 segundos.
+- **Novo lote:** o lance inicial e o incremento precisam ser maiores que zero e no máximo R$ 1.000.000,00, o mesmo limite do back-end. O erro de campo vazio só aparece depois que a pessoa sai do campo ou tenta publicar, para não acusar erro em um formulário que acabou de abrir.
+- **Filtros:** se o mínimo for maior que o máximo, os dois campos ficam vermelhos e aparece "O valor mínimo está maior que o máximo."
+- **Varredura nos outros campos:** o valor do lance (sala do lote) e o valor do depósito (carteira) já usavam essa validação. As buscas (catálogo e busca geral) são de texto e continuam aceitando letras.
+- **Sem duplicação:** a limpeza do texto e o aviso temporário saíram do `CampoDinheiro` para um hook, `useCampoNumerico`. O `CampoDinheiro` e o campo compacto dos filtros usam o mesmo hook.
+
+### Escolha de data e horário mais simples
+
+- Os campos **Início** e **Fim** do novo lote usavam `datetime-local`, que obrigava a rolar colunas de horas e minutos para escolher o horário.
+- Agora cada um tem duas partes:
+  - o **calendário** do navegador para o dia, como antes;
+  - um **campo para digitar a hora** no formato HH:mm. Aceita qualquer horário do dia, minuto a minuto (ex.: 14:37).
+- No campo da hora, basta digitar os números ("1437"): os dois-pontos entram sozinhos. Letras são descartadas e geram o aviso "Use só números".
+- Hora incompleta ou impossível (ex.: "25" ou "23:99") deixa a borda vermelha ao sair do campo. Enquanto a pessoa ainda está digitando, o erro não aparece.
+- O início sugerido é o horário atual. O fim sugerido é 24 horas depois.
+- O formulário confere, antes de enviar, as mesmas regras do back-end: o fim precisa ser depois do início e estar no futuro. O campo com problema fica vermelho e mostra o motivo.
+- O valor continua no formato `AAAA-MM-DDTHH:mm` e é convertido para ISO no envio, como antes.
+
+### Arquivos alterados
+
+| Arquivo | Mudança |
+|---|---|
+| `frontend/src/componentes/CampoDinheiro.jsx` | Extraído o hook `useCampoNumerico`; exportados `temCaractereRecusado` e `MENSAGEM_RECUSA` |
+| `frontend/src/componentes/CampoDataHora.jsx` | **Novo.** Calendário para a data + campo HH:mm digitado para a hora |
+| `frontend/src/componentes/CriarLote.jsx` | Usa `CampoDinheiro` e `CampoDataHora`; validação por campo |
+| `frontend/src/componentes/FiltrosVitrine.jsx` | Campo compacto numérico na faixa de preço; aviso de mínimo maior que o máximo |
+| `frontend/src/estilos.css` | Borda vermelha nos campos compactos e estilo do campo de hora |
+
+### Como foi testado
+
+Os testes rodaram no navegador (Playwright) com o front compilado e uma API simulada:
+
+- **Filtro "De R$":** digitar "5a0b" deixa "50", com borda vermelha e mensagem, que some após 2,5 s.
+- **Faixa de preço:** mínimo 900 e máximo 100 deixam os dois campos vermelhos com o aviso. Ao corrigir, voltam ao normal.
+- **Lance inicial:** digitar "abc12" deixa "12", com aviso.
+- **Datas e horários:**
+  - o início já vem com o horário atual;
+  - "25" e "23:99" mostram "Digite o horário no formato HH:mm" ao sair do campo; "23:59" é aceito;
+  - um fim antes do início mostra "O fim precisa ser depois do início.";
+  - com o fim em 14:37 do dia seguinte, o lote é publicado e a API recebe exatamente 14:37 (convertido para ISO).
+- **Publicar com erros:** três campos ficam vermelhos e aparece "Confira os campos destacados em vermelho." Depois de corrigir, o lote é publicado.
+- **Celular (390 px):** sem rolagem horizontal. Sem erros no console.

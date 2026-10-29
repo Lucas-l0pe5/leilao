@@ -3,6 +3,8 @@
 // As opções de época e origem vêm dos próprios lotes, então só aparece o que existe.
 
 import { useId } from 'react';
+import { MENSAGEM_RECUSA, useCampoNumerico } from './CampoDinheiro.jsx';
+import { textoParaCentavos } from '../lib/dinheiro.js';
 
 export const FILTROS_INICIAIS = {
   situacao: '',
@@ -45,9 +47,52 @@ function GrupoDeOpcoes({ titulo, opcoes, valor, aoEscolher }) {
   );
 }
 
+// Campo compacto de valor da faixa de preço: mesma limpeza do CampoDinheiro
+// (só números, vírgula e ponto), com borda vermelha quando algo é recusado
+// ou quando o filtro está inválido.
+function CampoPrecoMini({ rotulo, rotuloAcessivel, valor, aoMudar, invalido, idErro, placeholder }) {
+  const { recusado, mudar } = useCampoNumerico(aoMudar);
+  const comErro = recusado || invalido;
+  return (
+    <label className={comErro ? 'campo-mini campo-mini--erro' : 'campo-mini'}>
+      <span>{rotulo}</span>
+      <input
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder={placeholder}
+        value={valor}
+        onChange={mudar}
+        aria-label={rotuloAcessivel}
+        aria-invalid={comErro}
+        aria-describedby={comErro ? idErro : undefined}
+      />
+      {recusado && (
+        <span className="campo__erro" role="alert">
+          {MENSAGEM_RECUSA}
+        </span>
+      )}
+    </label>
+  );
+}
+
+// Erro da faixa de preço como um todo, ou null.
+function erroDaFaixa(minimo, maximo) {
+  const de = textoParaCentavos(minimo);
+  const ate = textoParaCentavos(maximo);
+  if ((minimo !== '' && de === null) || (maximo !== '' && ate === null)) {
+    return { texto: 'Valor inválido. Use o formato 1.250,50.', minimo: minimo !== '' && de === null, maximo: maximo !== '' && ate === null };
+  }
+  if (de !== null && ate !== null && minimo !== '' && maximo !== '' && de > ate) {
+    return { texto: 'O valor mínimo está maior que o máximo.', minimo: true, maximo: true };
+  }
+  return null;
+}
+
 export default function FiltrosVitrine({ filtros, aoMudar, contagens, epocas, origens, aoLimpar, aberto }) {
   const id = useId();
   const mudar = (campo) => (valor) => aoMudar({ ...filtros, [campo]: valor });
+  const idErroFaixa = `${id}-faixa`;
+  const faixa = erroDaFaixa(filtros.minimo, filtros.maximo);
   const algumAtivo = Object.keys(FILTROS_INICIAIS).some((campo) => filtros[campo] !== FILTROS_INICIAIS[campo]);
 
   return (
@@ -76,28 +121,31 @@ export default function FiltrosVitrine({ filtros, aoMudar, contagens, epocas, or
       <fieldset className="filtros__grupo">
         <legend className="filtros__titulo">Faixa de preço</legend>
         <div className="filtros__preco">
-          <label className="campo-mini">
-            <span>De R$</span>
-            <input
-              inputMode="decimal"
-              placeholder="0"
-              value={filtros.minimo}
-              onChange={(e) => mudar('minimo')(e.target.value)}
-              aria-label="Valor mínimo em reais"
-            />
-          </label>
+          <CampoPrecoMini
+            rotulo="De R$"
+            rotuloAcessivel="Valor mínimo em reais"
+            placeholder="0"
+            valor={filtros.minimo}
+            aoMudar={mudar('minimo')}
+            invalido={Boolean(faixa?.minimo)}
+            idErro={idErroFaixa}
+          />
           <span aria-hidden="true" className="filtros__traco">–</span>
-          <label className="campo-mini">
-            <span>Até R$</span>
-            <input
-              inputMode="decimal"
-              placeholder="sem limite"
-              value={filtros.maximo}
-              onChange={(e) => mudar('maximo')(e.target.value)}
-              aria-label="Valor máximo em reais"
-            />
-          </label>
+          <CampoPrecoMini
+            rotulo="Até R$"
+            rotuloAcessivel="Valor máximo em reais"
+            placeholder="sem limite"
+            valor={filtros.maximo}
+            aoMudar={mudar('maximo')}
+            invalido={Boolean(faixa?.maximo)}
+            idErro={idErroFaixa}
+          />
         </div>
+        {faixa && (
+          <p id={idErroFaixa} className="campo__erro" role="alert">
+            {faixa.texto}
+          </p>
+        )}
       </fieldset>
 
       {algumAtivo && (

@@ -1189,6 +1189,38 @@ ul.aviso {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 18%, transparent);
 }
 
+/* Faixa de preço com erro: a mesma borda vermelha dos campos grandes. */
+.campo-mini--erro input,
+.campo-mini--erro input:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef4444;
+}
+
+.campo-mini .campo__erro {
+  font-size: 0.75rem;
+}
+
+/* Data + horário: o dia ocupa o espaço que sobra, a hora fica estreita. */
+.campo-data {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.campo-data__partes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 8px;
+}
+
+/* Hora digitada: largura de "00:00", números alinhados e centralizados. */
+.campo-data input[type='text'] {
+  padding: 0 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .filtros__limpar {
   align-self: flex-start;
   margin-top: 4px;
@@ -2341,19 +2373,6 @@ ul.aviso {
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-.entrar__teste {
-  padding: 0 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.entrar__contas {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .papeis {
