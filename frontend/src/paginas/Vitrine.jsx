@@ -5,14 +5,16 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { useLotes } from '../lotes.jsx';
+import { useSessao } from '../sessao.jsx';
 import { textoParaCentavos } from '../lib/dinheiro.js';
 import {
-  atributo,
   combinaComBusca,
   encerraEm24h,
+  epocaDoLote,
   escolherDestaque,
+  origemDoLote,
   valorDoLote,
-  valoresDoAtributo,
+  valoresDistintos,
 } from '../lib/lotes.js';
 import DestaqueLote from '../componentes/DestaqueLote.jsx';
 import FiltrosVitrine, { FILTROS_INICIAIS, SITUACOES } from '../componentes/FiltrosVitrine.jsx';
@@ -47,6 +49,7 @@ function passaNoPreco(lote, minimo, maximo) {
 
 export default function Vitrine() {
   const { dados: lotes, erro, carregando, recarregar } = useLotes();
+  const { usuario } = useSessao();
   const { state } = useLocation();
   const [busca, setBusca] = useState(state?.busca ?? '');
   const [filtros, setFiltros] = useState(FILTROS_INICIAIS);
@@ -68,24 +71,29 @@ export default function Vitrine() {
     return <Falha erro={erro} aoTentar={recarregar} />;
   }
 
-  const daBusca = lotes.filter((lote) => combinaComBusca(lote, busca));
-
-  // Quantos lotes cada status teria (respeitando a busca), para os contadores.
-  const contagens = Object.fromEntries(
-    SITUACOES.map(({ valor }) => [valor, daBusca.filter((lote) => passaNaSituacao(lote, valor)).length])
-  );
-
-  const filtrados = daBusca.filter(
+  // Primeiro, tudo menos o status: busca, época, origem e preço.
+  const semStatus = lotes.filter(
     (lote) =>
-      passaNaSituacao(lote, filtros.situacao) &&
-      (!filtros.epoca || atributo(lote, 'Época') === filtros.epoca) &&
-      (!filtros.origem || atributo(lote, 'Origem') === filtros.origem) &&
+      combinaComBusca(lote, busca) &&
+      (!filtros.epoca || epocaDoLote(lote) === filtros.epoca) &&
+      (!filtros.origem || origemDoLote(lote) === filtros.origem) &&
       passaNoPreco(lote, filtros.minimo, filtros.maximo)
   );
+
+  // Os contadores de cada status saem desse conjunto, então acompanham os
+  // outros filtros: marcar "Século XIX" atualiza o "Ao vivo (X)".
+  const contagens = Object.fromEntries(
+    SITUACOES.map(({ valor }) => [valor, semStatus.filter((lote) => passaNaSituacao(lote, valor)).length])
+  );
+
+  const filtrados = semStatus.filter((lote) => passaNaSituacao(lote, filtros.situacao));
 
   const comparar = ORDENS[ordem].comparar;
   const visiveis = comparar ? [...filtrados].sort(comparar) : filtrados;
   const destaque = escolherDestaque(lotes);
+
+  // Leiloeiro não dá lances: sem esta função, cartões e destaque mostram "Visualizar lote".
+  const abrirLance = usuario?.papel === 'leiloeiro' ? undefined : (lote) => setLoteAberto(lote.id);
 
   function limparTudo() {
     setFiltros(FILTROS_INICIAIS);
@@ -96,15 +104,15 @@ export default function Vitrine() {
     <>
       <h1 className="visualmente-oculto">Leilões de instrumentos musicais antigos e vintage</h1>
 
-      {destaque && <DestaqueLote lote={destaque} aoDarLance={(lote) => setLoteAberto(lote.id)} />}
+      {destaque && <DestaqueLote lote={destaque} aoDarLance={abrirLance} />}
 
       <div className="catalogo-lotes" id="catalogo">
         <FiltrosVitrine
           filtros={filtros}
           aoMudar={setFiltros}
           contagens={contagens}
-          epocas={valoresDoAtributo(lotes, 'Época')}
-          origens={valoresDoAtributo(lotes, 'Origem')}
+          epocas={valoresDistintos(lotes, epocaDoLote)}
+          origens={valoresDistintos(lotes, origemDoLote)}
           aoLimpar={() => setFiltros(FILTROS_INICIAIS)}
           aberto={filtrosAbertos}
         />
@@ -161,7 +169,7 @@ export default function Vitrine() {
           ) : (
             <div className="grade-lotes">
               {visiveis.map((lote) => (
-                <CartaoLote key={lote.id} lote={lote} aoDarLance={(escolhido) => setLoteAberto(escolhido.id)} />
+                <CartaoLote key={lote.id} lote={lote} aoDarLance={abrirLance} />
               ))}
             </div>
           )}

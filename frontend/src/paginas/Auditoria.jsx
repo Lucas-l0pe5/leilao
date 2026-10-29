@@ -1,11 +1,12 @@
 // Auditoria pública: o servidor recalcula a cadeia de hashes e diz se algo foi adulterado.
 
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../lib/api.js';
 import { useConsulta } from '../lib/useConsulta.js';
 import { formatarCentavos } from '../lib/dinheiro.js';
 import { formatarHora, formatarDataHora } from '../lib/tempo.js';
-import { Carregando, Falha } from '../componentes/Estado.jsx';
+import { Carregando, Falha, Girador } from '../componentes/Estado.jsx';
 
 const PROBLEMAS = {
   SEQUENCIA_FORA_DE_ORDEM: 'Número de sequência fora de ordem (lance removido ou inserido).',
@@ -17,6 +18,42 @@ const PROBLEMAS = {
   ARREMATE_DIFERE_DO_ULTIMO_LANCE: 'O valor do arremate não bate com o último lance.',
   ARREMATE_DIFERE_DO_VENCEDOR: 'O vencedor do arremate não é o autor do último lance.',
 };
+
+// Tempo mínimo com o girador à mostra. Sem isso, numa resposta rápida o botão
+// "pisca" e a pessoa não sabe se a verificação aconteceu.
+const MINIMO_VISIVEL_MS = 450;
+
+function esperar(ms) {
+  return new Promise((resolver) => setTimeout(resolver, ms));
+}
+
+// Botão "Verificar de novo": gira enquanto o servidor recalcula a cadeia e,
+// no fim, diz o horário da última verificação.
+function BotaoVerificar({ aoVerificar }) {
+  const [verificando, setVerificando] = useState(false);
+  const [verificadoEm, setVerificadoEm] = useState(null);
+
+  async function verificar() {
+    setVerificando(true);
+    await Promise.all([aoVerificar(), esperar(MINIMO_VISIVEL_MS)]);
+    setVerificando(false);
+    setVerificadoEm(new Date().toISOString());
+  }
+
+  return (
+    <div className="verificar">
+      <button type="button" className="botao botao--secundario botao--pequeno" onClick={verificar} disabled={verificando}>
+        {verificando && <Girador />}
+        {verificando ? 'Verificando…' : 'Verificar de novo'}
+      </button>
+      {verificadoEm && !verificando && (
+        <span key={verificadoEm} className="verificar__retorno" role="status">
+          Cadeia recalculada às {formatarHora(verificadoEm)}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function encurtar(hash) {
   return `${hash.slice(0, 10)}…${hash.slice(-6)}`;
@@ -51,9 +88,7 @@ export default function Auditoria() {
               ? `A cadeia quebra a partir do lance #${a.primeira_quebra_sequencia}.`
               : 'A cadeia de lances confere, mas os dados do lote não batem com ela.'}
         </span>
-        <button type="button" className="botao botao--secundario botao--pequeno" onClick={recarregar}>
-          Verificar de novo
-        </button>
+        <BotaoVerificar aoVerificar={recarregar} />
       </div>
 
       {a.inconsistencias.length > 0 && (

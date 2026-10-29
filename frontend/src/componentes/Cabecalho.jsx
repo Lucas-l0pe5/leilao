@@ -52,8 +52,9 @@ export default function Cabecalho() {
         <div className="cabecalho__conta">
           {usuario ? (
             <>
-              <span className="cabecalho__apelido" title={usuario.email}>
-                {usuario.apelido}
+              <span className="cabecalho__usuario" title={usuario.email}>
+                <span className="cabecalho__papel">{usuario.papel === 'leiloeiro' ? 'Leiloeiro' : 'Licitante'}</span>
+                <span className="cabecalho__apelido">{usuario.apelido}</span>
               </span>
               <button type="button" className="botao botao--fantasma botao--pequeno" onClick={aoSair}>
                 Sair

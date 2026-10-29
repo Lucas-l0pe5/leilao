@@ -74,15 +74,21 @@ export default function DestaqueLote({ lote: resumo, aoDarLance }) {
         </div>
 
         <div className="destaque__acoes">
-          {aoVivo && (
-            <button type="button" className="botao botao--primario botao--grande" onClick={() => aoDarLance(lote)}>
-              <Icone nome="martelo" tamanho={18} />
-              Dar lance agora
-            </button>
+          {aoVivo && aoDarLance ? (
+            <>
+              <button type="button" className="botao botao--primario botao--grande" onClick={() => aoDarLance(lote)}>
+                <Icone nome="martelo" tamanho={18} />
+                Dar lance agora
+              </button>
+              <Link to={`/lotes/${lote.id}`} className="botao botao--secundario botao--grande">
+                Ver sala do lote
+              </Link>
+            </>
+          ) : (
+            <Link to={`/lotes/${lote.id}`} className="botao botao--secundario botao--grande">
+              Visualizar lote
+            </Link>
           )}
-          <Link to={`/lotes/${lote.id}`} className="botao botao--secundario botao--grande">
-            Ver sala do lote
-          </Link>
         </div>
 
         <Link to={`/lotes/${lote.id}/auditoria`} className="destaque__auditoria">

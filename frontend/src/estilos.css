@@ -275,9 +275,28 @@ button {
   flex: none;
 }
 
+.cabecalho__usuario {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Papel e ID em semibold, para se destacarem do resto do cabeçalho. */
+.cabecalho__papel {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--bronze-fundo);
+  color: var(--acento);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .cabecalho__apelido {
   font-size: 0.85rem;
-  color: var(--texto-2);
+  font-weight: 600;
+  color: var(--texto);
   font-variant-numeric: tabular-nums;
 }
 
@@ -544,6 +563,24 @@ button {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 18%, transparent);
 }
 
+/* Campo com erro: borda vermelha de 2px. O segundo pixel vem da sombra,
+   para o campo não "pular" 1px de tamanho ao entrar no estado de erro. */
+.campo--erro input,
+.campo--erro input:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef4444;
+}
+
+.campo--erro input:focus {
+  box-shadow: 0 0 0 1px #ef4444, 0 0 0 4px rgba(239, 68, 68, 0.18);
+}
+
+.campo__erro {
+  font-size: 0.82rem;
+  color: var(--perigo);
+  animation: entrar 200ms var(--saida);
+}
+
 .campo__moeda {
   position: relative;
   display: flex;
@@ -685,6 +722,33 @@ ul.aviso {
   max-width: 360px;
   font-size: 0.85rem;
   color: var(--texto-3);
+}
+
+.girador {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: girar 0.7s linear infinite;
+}
+
+/* Esqueleto: bloco cinza com um brilho que passa, enquanto algo carrega. */
+.esqueleto {
+  position: relative;
+  overflow: hidden;
+  background: var(--superficie-2);
+  border-radius: 6px;
+}
+
+.esqueleto::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: brilhar 1.3s ease-in-out infinite;
 }
 
 .estado__girando {
@@ -965,6 +1029,16 @@ ul.aviso {
   align-self: start;
   display: flex;
   flex-direction: column;
+  /* Com muitos países do Met, a coluna pode ficar mais alta que a tela.
+     Ela rola por dentro, então "Faixa de preço" nunca fica fora de alcance. */
+  max-height: calc(100vh - 148px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  /* Folga de 8px à esquerda para o fundo do hover das opções (que avança 8px)
+     não ser cortado pela rolagem interna; a margem negativa devolve o alinhamento. */
+  margin-left: -8px;
+  padding: 0 6px 0 8px;
 }
 
 .filtros__grupo {
@@ -1250,7 +1324,7 @@ ul.aviso {
 
 .lote__imagem {
   position: relative;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1;
   background: var(--superficie-2);
   display: grid;
   place-items: center;
@@ -1261,7 +1335,9 @@ ul.aviso {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 20px;
+  /* Topo maior: o número do lote e o selo ficam por cima da imagem sem
+     cobrir a cabeça de instrumentos altos (violinos, violões, harpas). */
+  padding: 48px 24px 20px;
   mix-blend-mode: multiply;
   transition: transform 600ms var(--saida), filter 300ms;
 }
@@ -2066,11 +2142,11 @@ ul.aviso {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
-  transition: opacity 200ms;
 }
 
-.catalogo[aria-busy='true'] {
-  opacity: 0.5;
+.catalogo__fonte {
+  font-size: 0.8rem;
+  color: var(--texto-3);
 }
 
 .catalogo__item {
@@ -2078,35 +2154,78 @@ ul.aviso {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   padding: 8px;
   border-radius: var(--raio);
   border: 1px solid var(--borda);
-  background: var(--fundo);
+  background: var(--superficie);
   text-align: left;
   font-size: 0.82rem;
   cursor: pointer;
+  animation: entrar 260ms var(--saida);
   transition: border-color 150ms var(--saida), transform 160ms var(--saida);
+}
+
+.catalogo__item:hover {
+  border-color: var(--borda-forte);
 }
 
 .catalogo__item:active {
   transform: scale(0.98);
 }
 
-.catalogo__item img {
-  aspect-ratio: 1;
-  width: 100%;
-  object-fit: contain;
-  background: var(--superficie-2);
-  border-radius: 6px;
-  mix-blend-mode: multiply;
+.catalogo__item--esqueleto {
+  cursor: default;
+  animation: none;
 }
 
-.catalogo__item span {
+.catalogo__imagem {
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 6px;
+  background: var(--superficie-2);
+  overflow: hidden;
+}
+
+/* A foto entra com um fade quando termina de baixar (o esqueleto fica atrás). */
+.catalogo__foto {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+  mix-blend-mode: multiply;
+  opacity: 0;
+  transition: opacity 300ms var(--saida);
+}
+
+.catalogo__foto--pronta {
+  opacity: 1;
+}
+
+.catalogo__rotulo {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--acento);
+}
+
+.catalogo__item > span:last-child {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.esqueleto--linha {
+  display: block;
+  height: 10px;
+  margin-top: 4px;
+}
+
+.esqueleto--curta {
+  width: 60%;
 }
 
 .catalogo__item--ativo {
@@ -2384,13 +2503,27 @@ ul.aviso {
   font-size: 1.8rem;
 }
 
-.veredito span {
+.veredito > span {
   grid-column: 1;
 }
 
-.veredito button {
+.verificar {
   grid-row: 1 / span 2;
   grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.verificar .botao:disabled {
+  opacity: 0.8;
+  cursor: progress;
+}
+
+.verificar__retorno {
+  font-size: 0.82rem;
+  animation: entrar 260ms var(--saida);
 }
 
 .veredito--integro {
@@ -2498,6 +2631,12 @@ ul.aviso {
   }
 }
 
+@keyframes brilhar {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 @keyframes aparecer {
   from {
     opacity: 0;
@@ -2524,6 +2663,23 @@ ul.aviso {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
+  }
+}
+
+/* Exceção: girador e esqueleto não são enfeite, são o aviso de "carregando".
+   Parados, parecem travados. Por isso continuam girando, só que mais devagar.
+   (Era o motivo do spinner "estático": o Windows com animações desligadas
+   ativa o prefers-reduced-motion, e a regra acima congelava tudo.) */
+@media (prefers-reduced-motion: reduce) {
+  .estado__girando,
+  .girador {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .esqueleto::after {
+    animation-duration: 2.4s !important;
+    animation-iteration-count: infinite !important;
   }
 }
 
@@ -2569,6 +2725,9 @@ ul.aviso {
   .filtros {
     display: none;
     position: static;
+    max-height: none;
+    overflow: visible;
+    margin-left: 0;
     order: 2;
     margin-bottom: 20px;
     padding: 4px 18px;
@@ -2647,6 +2806,17 @@ ul.aviso {
 
   .gaveta__tempo {
     align-items: flex-start;
+  }
+
+  .veredito {
+    grid-template-columns: 1fr;
+  }
+
+  .verificar {
+    grid-row: auto;
+    grid-column: 1;
+    align-items: flex-start;
+    margin-top: 8px;
   }
 
   .cronometro__bloco {

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../lib/api.js';
 import { centavosParaTexto, formatarCentavos, textoParaCentavos } from '../lib/dinheiro.js';
+import CampoDinheiro from './CampoDinheiro.jsx';
 
 function mensagemDoErro(erro) {
   const dados = erro.dados ?? {};
@@ -50,23 +51,44 @@ function atalhosDeLance(lote) {
   });
 }
 
+// Devolve a mensagem de erro do campo, ou null se está tudo certo.
+function validarLance(texto, centavos, minimo, tocado) {
+  if (texto !== '' && centavos === null) {
+    return 'Valor inválido. Use o formato 650,00.';
+  }
+  if (!tocado) {
+    return null;
+  }
+  if (texto === '' || centavos === 0) {
+    return 'Digite o valor do seu lance.';
+  }
+  if (centavos < minimo) {
+    return `Abaixo do mínimo de ${formatarCentavos(minimo)}.`;
+  }
+  return null;
+}
+
 export default function FormLance({ lote, aoAtualizar }) {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState(null);
+  // "Tocado": a pessoa já saiu do campo ou tentou enviar. Só a partir daí
+  // apontamos "abaixo do mínimo", para não acusar erro no meio da digitação.
+  const [tocado, setTocado] = useState(false);
   const tentativa = useRef({ valor: null, chave: null });
 
   const minimo = lote.proximo_minimo_centavos;
   const centavos = textoParaCentavos(texto);
+  const erroDoCampo = validarLance(texto, centavos, minimo, tocado);
 
   async function enviar(evento) {
     evento.preventDefault();
     if (enviando) {
       return;
     }
-    if (centavos === null || centavos <= 0) {
-      setAviso({ tipo: 'erro', texto: 'Digite um valor válido, por exemplo 650,00.' });
-      return;
+    setTocado(true);
+    if (validarLance(texto, centavos, minimo, true)) {
+      return; // o próprio campo já mostra o motivo, com a borda vermelha
     }
 
     if (tentativa.current.valor !== centavos) {
@@ -85,6 +107,7 @@ export default function FormLance({ lote, aoAtualizar }) {
 
       tentativa.current = { valor: null, chave: null };
       setTexto('');
+      setTocado(false);
       setAviso({
         tipo: 'sucesso',
         texto: resposta.lote?.prorrogado
@@ -124,22 +147,16 @@ export default function FormLance({ lote, aoAtualizar }) {
         ))}
       </div>
 
-      <label className="campo">
-        <span className="campo__rotulo">Seu lance</span>
-        <span className="campo__moeda">
-          <span aria-hidden="true">R$</span>
-          <input
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder={centavosParaTexto(minimo)}
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            aria-describedby="dica-lance"
-          />
-        </span>
-      </label>
+      <CampoDinheiro
+        rotulo="Seu lance"
+        valor={texto}
+        aoMudar={setTexto}
+        erro={erroDoCampo}
+        placeholder={centavosParaTexto(minimo)}
+        onBlur={() => texto !== '' && setTocado(true)}
+      />
 
-      <p id="dica-lance" className="form-lance__dica">
+      <p className="form-lance__dica">
         Mínimo agora: <strong className="numero">{formatarCentavos(minimo)}</strong>
         <span aria-hidden="true">·</span>
         incremento de {formatarCentavos(lote.incremento_minimo_centavos)}

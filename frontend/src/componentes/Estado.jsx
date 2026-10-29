@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from 'react';
 
+// Girador pequeno, para dentro de botões ("Verificando…").
+export function Girador() {
+  return <span className="girador" aria-hidden="true" />;
+}
+
 export function Carregando({ texto = 'Carregando…' }) {
   const [demorando, setDemorando] = useState(false);
 

@@ -28,7 +28,7 @@ export default function Confianca() {
   return (
     <section className="confianca" aria-labelledby="confianca-titulo">
       <div className="confianca__cabecalho">
-        <p className="sobrelinha">Por que confiar</p>
+        <p className="sobrelinha">Por que confiar?</p>
         <h2 id="confianca-titulo">Regras claras em cada martelada</h2>
       </div>
       <ul className="confianca__pilares">

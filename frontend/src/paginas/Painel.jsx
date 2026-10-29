@@ -118,6 +118,11 @@ export default function Painel() {
                 <div className="lista__acoes">
                   <Selo tipo={lote.situacao} />
                   {lote.pode_cancelar && <BotaoCancelar loteId={lote.id} aoCancelar={recarregar} />}
+                  {!lote.pode_cancelar && lote.total_lances > 0 && (lote.situacao === 'ao_vivo' || lote.situacao === 'agendado') && (
+                    <span className="texto-suave" title="Lotes com lances não podem ser cancelados">
+                      Com lances
+                    </span>
+                  )}
                 </div>
               </li>
             ))}

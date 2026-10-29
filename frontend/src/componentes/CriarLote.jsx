@@ -1,11 +1,38 @@
 // Painel do leiloeiro: buscar um item no catálogo e publicar um lote com ele.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { formatarCentavos, textoParaCentavos } from '../lib/dinheiro.js';
+import { Girador } from './Estado.jsx';
 import { paraCampoDataHora } from '../lib/tempo.js';
+import { rotuloEmPortugues, traduzirBusca } from '../lib/catalogoMet.js';
 
 const UMA_HORA = 60 * 60 * 1000;
+const ESQUELETOS = 8;
+// Se o Met falhar (o servidor gratuito acorda devagar e o Met tem limite de
+// requisições), tentamos de novo sozinhos, uma vez, antes de ficar na reserva.
+const ESPERA_NOVA_TENTATIVA_MS = 2000;
+
+function esperar(ms) {
+  return new Promise((resolver) => setTimeout(resolver, ms));
+}
+
+// Miniatura do catálogo: um esqueleto brilha no lugar até a imagem chegar.
+function ImagemCatalogo({ src }) {
+  const [carregada, setCarregada] = useState(false);
+  return (
+    <span className={carregada ? 'catalogo__imagem' : 'catalogo__imagem esqueleto'}>
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        className={carregada ? 'catalogo__foto catalogo__foto--pronta' : 'catalogo__foto'}
+        onLoad={() => setCarregada(true)}
+        onError={() => setCarregada(true)}
+      />
+    </span>
+  );
+}
 
 function horariosPadrao() {
   const inicio = new Date();
@@ -16,19 +43,48 @@ function horariosPadrao() {
 
 export default function CriarLote({ aoCriar }) {
   const [termo, setTermo] = useState('');
-  const [busca, setBusca] = useState({ carregando: true, itens: [], aviso: null, erro: null });
+  const [busca, setBusca] = useState({ carregando: true, itens: [], fonte: null, aviso: null, erro: null, termoMet: null });
+  // Número da busca mais recente. Se a pessoa buscar de novo antes da anterior
+  // terminar (ou durante a nova tentativa no Met), só a última resposta vale.
+  const ultimaBusca = useRef(0);
   const [item, setItem] = useState(null);
   const [form, setForm] = useState(() => ({ titulo: '', lanceInicial: '', incremento: '', ...horariosPadrao() }));
   const [enviando, setEnviando] = useState(false);
   const [retorno, setRetorno] = useState(null);
 
+  async function consultar(termoMet) {
+    return api(`/catalogo/itens?q=${encodeURIComponent(termoMet)}`);
+  }
+
+  // Traduz o termo para o inglês do Met e busca. Se a resposta vier da reserva
+  // (o Met falhou), espera um pouco e tenta o Met mais uma vez.
   async function buscar(texto) {
+    const minha = ++ultimaBusca.current;
+    const vencida = () => minha !== ultimaBusca.current;
+    const { termo: termoMet, traduzido } = traduzirBusca(texto);
     setBusca((anterior) => ({ ...anterior, carregando: true, erro: null }));
     try {
-      const resposta = await api(`/catalogo/itens?q=${encodeURIComponent(texto)}`);
-      setBusca({ carregando: false, itens: resposta.itens, aviso: resposta.aviso ?? null, erro: null });
+      let resposta = await consultar(termoMet);
+      if (resposta.fonte === 'reserva' && !vencida()) {
+        await esperar(ESPERA_NOVA_TENTATIVA_MS);
+        resposta = await consultar(termoMet);
+      }
+      if (vencida()) {
+        return;
+      }
+      setBusca({
+        carregando: false,
+        itens: resposta.itens,
+        fonte: resposta.fonte,
+        aviso: resposta.aviso ?? null,
+        erro: null,
+        termoMet: traduzido ? termoMet : null,
+      });
     } catch (erro) {
-      setBusca({ carregando: false, itens: [], aviso: null, erro: erro.message });
+      if (vencida()) {
+        return;
+      }
+      setBusca({ carregando: false, itens: [], fonte: null, aviso: null, erro: erro.message, termoMet: null });
     }
   }
 
@@ -100,17 +156,32 @@ export default function CriarLote({ aoCriar }) {
       >
         <input
           type="search"
-          placeholder="Buscar no catálogo (ex.: violin, guitar, flute)"
+          placeholder="Buscar no catálogo (ex.: violino, violão, flauta)"
           value={termo}
           onChange={(e) => setTermo(e.target.value)}
           aria-label="Buscar item no catálogo"
         />
         <button type="submit" className="botao botao--secundario" disabled={busca.carregando}>
+          {busca.carregando && <Girador />}
           {busca.carregando ? 'Buscando…' : 'Buscar'}
         </button>
       </form>
 
-      {busca.aviso && <p className="aviso aviso--alerta">{busca.aviso}</p>}
+      {!busca.carregando && busca.fonte === 'met' && (
+        <p className="catalogo__fonte">
+          Catálogo do Metropolitan Museum
+          {busca.termoMet && <> · buscando por “{busca.termoMet}”, o termo em inglês</>}
+        </p>
+      )}
+
+      {!busca.carregando && busca.fonte === 'reserva' && (
+        <div className="aviso aviso--alerta">
+          <p>{busca.aviso ?? 'Catálogo do Met indisponível. Exibindo o catálogo reserva.'}</p>
+          <button type="button" className="link-botao" onClick={() => buscar(termo)}>
+            Tentar o Met de novo
+          </button>
+        </div>
+      )}
       {busca.erro && <p className="aviso aviso--erro">{busca.erro}</p>}
 
       {!busca.carregando && busca.itens.length === 0 && !busca.erro && (
@@ -118,7 +189,17 @@ export default function CriarLote({ aoCriar }) {
       )}
 
       <ul className="catalogo" aria-busy={busca.carregando}>
-        {busca.itens.map((opcao) => {
+        {busca.carregando &&
+          Array.from({ length: ESQUELETOS }, (_, indice) => (
+            <li key={`esqueleto-${indice}`} aria-hidden="true">
+              <span className="catalogo__item catalogo__item--esqueleto">
+                <span className="catalogo__imagem esqueleto" />
+                <span className="esqueleto esqueleto--linha" />
+                <span className="esqueleto esqueleto--linha esqueleto--curta" />
+              </span>
+            </li>
+          ))}
+        {!busca.carregando && busca.itens.map((opcao) => {
           const ativo = item?.item_externo_id === opcao.item_externo_id && item?.fonte === opcao.fonte;
           return (
             <li key={`${opcao.fonte}-${opcao.item_externo_id}`}>
@@ -128,7 +209,10 @@ export default function CriarLote({ aoCriar }) {
                 onClick={() => escolher(opcao)}
                 aria-pressed={ativo}
               >
-                <img src={opcao.imagem_url} alt="" loading="lazy" />
+                <ImagemCatalogo src={opcao.imagem_url} />
+                {rotuloEmPortugues(opcao.titulo) && (
+                  <span className="catalogo__rotulo">{rotuloEmPortugues(opcao.titulo)}</span>
+                )}
                 <span>{opcao.titulo}</span>
               </button>
             </li>

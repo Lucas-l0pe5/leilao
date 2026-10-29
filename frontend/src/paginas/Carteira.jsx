@@ -4,8 +4,24 @@ import { useConsulta } from '../lib/useConsulta.js';
 import { formatarCentavos, textoParaCentavos } from '../lib/dinheiro.js';
 import { useSessao } from '../sessao.jsx';
 import { Carregando, Falha } from '../componentes/Estado.jsx';
+import CampoDinheiro from '../componentes/CampoDinheiro.jsx';
 
 const ATALHOS = [10000, 50000, 100000];
+const LIMITE_DEPOSITO_CENTAVOS = 100000000; // o mesmo limite do back-end: R$ 1.000.000,00
+
+// Mensagem de erro do campo de depósito, ou null se está tudo certo.
+function validarDeposito(texto, centavos, tocado) {
+  if (texto !== '' && centavos === null) {
+    return 'Valor inválido. Use o formato 1.000,00.';
+  }
+  if (centavos > LIMITE_DEPOSITO_CENTAVOS) {
+    return `O depósito máximo é ${formatarCentavos(LIMITE_DEPOSITO_CENTAVOS)}.`;
+  }
+  if (tocado && (texto === '' || centavos === 0)) {
+    return 'Digite um valor maior que zero.';
+  }
+  return null;
+}
 
 export default function Carteira() {
   const { usuario } = useSessao();
@@ -13,14 +29,16 @@ export default function Carteira() {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [retorno, setRetorno] = useState(null);
+  const [tocado, setTocado] = useState(false);
 
   const centavos = textoParaCentavos(texto);
+  const erroDoCampo = validarDeposito(texto, centavos, tocado);
 
   async function depositar(evento) {
     evento.preventDefault();
-    if (!centavos) {
-      setRetorno({ tipo: 'erro', texto: 'Digite um valor válido, por exemplo 1.000,00.' });
-      return;
+    setTocado(true);
+    if (validarDeposito(texto, centavos, true)) {
+      return; // o campo já mostra o motivo, com a borda vermelha
     }
     setEnviando(true);
     setRetorno(null);
@@ -29,6 +47,7 @@ export default function Carteira() {
       await recarregar();
       setRetorno({ tipo: 'sucesso', texto: `Depósito de ${formatarCentavos(centavos)} feito.` });
       setTexto('');
+      setTocado(false);
     } catch (falha) {
       setRetorno({ tipo: 'erro', texto: falha.message });
     } finally {
@@ -77,13 +96,14 @@ export default function Carteira() {
               </button>
             ))}
           </div>
-          <label className="campo">
-            <span className="campo__rotulo">Valor</span>
-            <span className="campo__moeda">
-              <span aria-hidden="true">R$</span>
-              <input inputMode="decimal" placeholder="1.000,00" value={texto} onChange={(e) => setTexto(e.target.value)} />
-            </span>
-          </label>
+          <CampoDinheiro
+            rotulo="Valor"
+            valor={texto}
+            aoMudar={setTexto}
+            erro={erroDoCampo}
+            placeholder="1.000,00"
+            onBlur={() => texto !== '' && setTocado(true)}
+          />
           <button type="submit" className="botao botao--primario" disabled={enviando}>
             {enviando ? 'Depositando…' : centavos ? `Depositar ${formatarCentavos(centavos)}` : 'Depositar'}
           </button>

@@ -1,5 +1,6 @@
 // Cartão de um lote na vitrine. O cartão inteiro leva à sala (link "esticado"
 // sobre o cartão), e o botão "Dar lance" abre o painel lateral sem sair da página.
+// Se a tela não passar "aoDarLance" (caso do leiloeiro), o botão vira "Visualizar lote".
 
 import { Link } from 'react-router';
 import Selo from './Selo.jsx';
@@ -103,12 +104,18 @@ export default function CartaoLote({ lote, aoDarLance }) {
           </div>
         </dl>
 
-        {lote.situacao === 'ao_vivo' && aoDarLance && (
-          <button type="button" className="botao botao--primario botao--largo lote__acao" onClick={() => aoDarLance(lote)}>
-            <Icone nome="martelo" tamanho={16} />
-            Dar lance rápido
-          </button>
-        )}
+        {lote.situacao === 'ao_vivo' &&
+          (aoDarLance ? (
+            <button type="button" className="botao botao--primario botao--largo lote__acao" onClick={() => aoDarLance(lote)}>
+              <Icone nome="martelo" tamanho={16} />
+              Dar lance rápido
+            </button>
+          ) : (
+            // Sem "aoDarLance" (o leiloeiro, que não dá lances): só leva à sala.
+            <Link to={`/lotes/${lote.id}`} className="botao botao--secundario botao--largo lote__acao" tabIndex={-1}>
+              Visualizar lote
+            </Link>
+          ))}
       </div>
     </article>
   );
